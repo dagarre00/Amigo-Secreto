@@ -7,13 +7,16 @@ import { ParticipantList } from './components/ParticipantList';
 import { RevealCard } from './components/RevealCard';
 import { RefreshIcon, EyeIcon } from './components/Icons';
 import { 
-  supabase, 
   createRoom, 
   joinRoom, 
-  getDeviceId, 
   saveAssignments, 
   resetRoom,
-  getMyReceiver
+  getSessionUser,
+  getParticipants,
+  getMyReceiverId,
+  subscribeToRoom,
+  getRoomStatus,
+  isMockMode
 } from './services/supabase';
 
 function App() {
@@ -31,17 +34,7 @@ function App() {
   // 1. Initial Load / Reconnect
   useEffect(() => {
     const checkSession = async () => {
-      const deviceId = getDeviceId();
-      if (!deviceId) return;
-
-      // Try to find if this device is in a room
-      const { data: user } = await supabase
-        .from('participants')
-        .select(`*, rooms:room_code (status)`)
-        .eq('device_id', deviceId)
-        .order('id', { ascending: false }) // Get latest
-        .limit(1)
-        .single();
+      const user = await getSessionUser();
 
       if (user) {
         setCurrentUser({
@@ -51,8 +44,7 @@ function App() {
             device_id: user.device_id
         });
         setRoomCode(user.room_code);
-        // @ts-ignore - supabase types inference can be tricky with joins
-        setRoomStatus(user.rooms?.status || 'LOBBY');
+        setRoomStatus(user.roomStatus as RoomStatus);
       }
     };
     checkSession();
@@ -62,39 +54,29 @@ function App() {
   useEffect(() => {
     if (!roomCode) return;
 
-    // Fetch initial list
-    const fetchParticipants = async () => {
-      const { data } = await supabase
-        .from('participants')
-        .select('*')
-        .eq('room_code', roomCode);
-      if (data) setParticipants(data);
+    // Initial Fetch
+    const fetchData = async () => {
+        const parts = await getParticipants(roomCode);
+        setParticipants(parts);
+        const status = await getRoomStatus(roomCode);
+        if(status) setRoomStatus(status as RoomStatus);
     };
-    fetchParticipants();
+    fetchData();
 
-    // Subscribe to changes
-    const channel = supabase
-      .channel('room_updates')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'participants', filter: `room_code=eq.${roomCode}` },
-        (payload) => {
-           fetchParticipants(); // Reload list on any change to be safe
+    // Subscribe
+    const unsubscribe = subscribeToRoom(
+        roomCode,
+        () => {
+            // Refresh participants on change
+            getParticipants(roomCode).then(setParticipants);
+        },
+        (newStatus) => {
+            setRoomStatus(newStatus);
         }
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'rooms', filter: `code=eq.${roomCode}` },
-        (payload) => {
-            if (payload.new && 'status' in payload.new) {
-                setRoomStatus(payload.new.status as RoomStatus);
-            }
-        }
-      )
-      .subscribe();
+    );
 
     return () => {
-      supabase.removeChannel(channel);
+      unsubscribe();
     };
   }, [roomCode]);
 
@@ -102,17 +84,18 @@ function App() {
   useEffect(() => {
     if (roomStatus === 'REVEAL' && currentUser && roomCode) {
         const fetchMatch = async () => {
-            const receiverId = await getMyReceiver(roomCode, currentUser.id);
+            const receiverId = await getMyReceiverId(roomCode, currentUser.id);
             if (receiverId) {
-                // We need the name of the receiver. We can find it in the participants list
-                // If participants list isn't populated yet, we might need to wait or fetch it.
-                // Assuming participants state is up to date via realtime
+                // Find name in local list if possible
                 const r = participants.find(p => p.id === receiverId);
-                if (r) setMyReceiver(r);
-                else {
-                    // Fallback fetch if state race condition
-                    const { data } = await supabase.from('participants').select('*').eq('id', receiverId).single();
-                    if(data) setMyReceiver(data);
+                if (r) {
+                    setMyReceiver(r);
+                } else {
+                    // Refresh list then try again
+                    const parts = await getParticipants(roomCode);
+                    setParticipants(parts);
+                    const freshR = parts.find(p => p.id === receiverId);
+                    if(freshR) setMyReceiver(freshR);
                 }
             }
         }
@@ -147,9 +130,9 @@ function App() {
       const user = await joinRoom(code, name);
       setRoomCode(code);
       setCurrentUser(user);
-      // Room status will be fetched by the useEffect or we can fetch here
-      const { data: room } = await supabase.from('rooms').select('status').eq('code', code).single();
-      if (room) setRoomStatus(room.status as RoomStatus);
+      // Fetch status immediately to switch view if needed
+      const status = await getRoomStatus(code);
+      if(status) setRoomStatus(status as RoomStatus);
     } catch (e: any) {
       setError(e.message || "Error al unirse");
     } finally {
@@ -186,6 +169,11 @@ function App() {
   if (!currentUser || !roomCode) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-200 flex flex-col items-center justify-center p-4">
+        {isMockMode() && (
+            <div className="absolute top-0 left-0 w-full bg-blue-600/90 text-white text-xs font-bold text-center py-1 z-50">
+                MODO PRUEBA: Datos locales (sin Supabase). Perfecto para probar en AI Studio.
+            </div>
+        )}
         <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-brand-400 to-purple-400 mb-8 tracking-tight">
           Amigo Invisible AI
         </h1>
@@ -198,7 +186,12 @@ function App() {
   // 2. Room View
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans flex flex-col items-center p-4 md:p-8">
-      <header className="w-full max-w-2xl mb-8 flex flex-col items-center text-center">
+      {isMockMode() && (
+            <div className="fixed top-0 left-0 w-full bg-blue-600/90 text-white text-xs font-bold text-center py-1 z-50 shadow-lg">
+                MODO PRUEBA (AI STUDIO)
+            </div>
+      )}
+      <header className="w-full max-w-2xl mb-8 flex flex-col items-center text-center mt-6">
         <div className="bg-white/5 px-4 py-1 rounded-full text-xs font-mono text-slate-400 mb-4 border border-white/10">
             SALA: <span className="text-brand-300 font-bold text-base ml-1">{roomCode}</span>
         </div>
@@ -269,7 +262,7 @@ function App() {
 
       </main>
 
-      <footer className="mt-12 text-center text-slate-600 text-sm">
+      <footer className="mt-12 text-center text-slate-600 text-sm mb-4">
         <p>Tu nombre: <span className="text-slate-400">{currentUser.name}</span></p>
       </footer>
     </div>

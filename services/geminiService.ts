@@ -1,4 +1,3 @@
-// Servicio de utilidades de texto (Anteriormente usaba IA, ahora usa lógica local)
 
 const GROUP_NAMES = [
   "Amigos Invisibles",
@@ -9,7 +8,10 @@ const GROUP_NAMES = [
   "Regalos y Risas",
   "Los Ayudantes de Santa",
   "El Club del Regalo",
-  "Renso y Trineos"
+  "Renos y Trineos",
+  "La Liga del Regalo",
+  "Operación Regalo",
+  "Los Reyes del Amigo Invisible"
 ];
 
 const HINTS = [
@@ -22,11 +24,13 @@ const HINTS = [
   "¡Será un momento mágico!",
   "¡Le va a encantar lo que elegiste!",
   "Es alguien que conoces bien (o no...)",
-  "¡La curiosidad mató al gato, pero no la sorpresa!"
+  "¡La curiosidad mató al gato, pero no la sorpresa!",
+  "Tiene un gran sentido del humor.",
+  "Le encantan los detalles únicos."
 ];
 
 export const generateGroupName = async (names: string[]): Promise<string> => {
-  // Simula un pequeño retardo para mantener la UX de "pensando"
+  // Simulate async delay for UI consistency
   return new Promise((resolve) => {
     setTimeout(() => {
         const randomName = GROUP_NAMES[Math.floor(Math.random() * GROUP_NAMES.length)];
@@ -36,7 +40,7 @@ export const generateGroupName = async (names: string[]): Promise<string> => {
 };
 
 export const generateFunnyHint = async (receiverName: string): Promise<string> => {
-    // Simula un pequeño retardo para mantener la UX de "consultando"
+    // Simulate async delay for UI consistency
     return new Promise((resolve) => {
         setTimeout(() => {
             const randomHint = HINTS[Math.floor(Math.random() * HINTS.length)];

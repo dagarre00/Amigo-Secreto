@@ -1,8 +1,19 @@
+
 # Guía de Despliegue y Base de Datos
 
-Esta guía detalla cómo configurar la base de datos en Supabase y desplegar la aplicación en Vercel.
+Esta guía detalla cómo configurar la base de datos en Supabase y desplegar la aplicación en Vercel, así como usar el modo de prueba en AI Studio.
 
-## 1. Configuración de Supabase
+## 1. Modo de Prueba (AI Studio / Local)
+
+La aplicación detecta automáticamente si faltan las credenciales de Supabase.
+
+*   **Comportamiento**: Usa `localStorage` para simular la base de datos.
+*   **Sincronización**: Funciona entre pestañas del mismo navegador (puedes abrir dos pestañas en AI Studio para simular dos usuarios).
+*   **Aviso**: Verás un banner azul indicando "MODO PRUEBA".
+
+## 2. Configuración de Supabase (Producción)
+
+Para persistir datos reales y jugar desde distintos dispositivos, necesitas Supabase.
 
 ### A. Crear Proyecto
 1. Ve a [database.new](https://database.new) y crea un nuevo proyecto.
@@ -65,7 +76,7 @@ CREATE POLICY "Public Access Assignments" ON assignments FOR ALL USING (true) WI
 
 ---
 
-## 2. Despliegue en Vercel
+## 3. Despliegue en Vercel
 
 ### A. Preparar el Proyecto
 Asegúrate de tener un archivo `vite.config.ts` o similar en la raíz si estás usando Vite, y un `package.json` con los scripts de build (`"build": "tsc && vite build"`).
@@ -83,8 +94,3 @@ En la sección "Environment Variables" de la configuración de despliegue en Ver
 |-----------------|-------|
 | `VITE_SUPABASE_URL` | Tu URL de Supabase (Project Settings > API) |
 | `VITE_SUPABASE_ANON_KEY` | Tu llave `anon public` de Supabase |
-
-**Importante:** Si el despliegue falla por no encontrar las variables, intenta agregarlas también sin el prefijo `VITE_` (ej. `SUPABASE_URL`) para asegurar compatibilidad, aunque el código prefiere `VITE_`.
-
-### D. Deploy
-Haz clic en **Deploy**. Vercel detectará que es una aplicación React/Vite, construirá el proyecto y te dará una URL pública.
