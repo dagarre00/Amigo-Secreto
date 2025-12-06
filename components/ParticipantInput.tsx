@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { SparklesIcon, PlusIcon } from './Icons';
 
 interface JoinGameProps {
   onCreate: (name: string) => void;
-  onJoin: (code: string, name: string) => void;
+  onJoin: (code: string) => void;
   isLoading: boolean;
 }
 
@@ -14,13 +15,13 @@ export const JoinGame: React.FC<JoinGameProps> = ({ onCreate, onJoin, isLoading 
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
     
     if (mode === 'CREATE') {
+      if (!name.trim()) return;
       onCreate(name.trim());
     } else {
       if (!code.trim()) return;
-      onJoin(code.trim().toUpperCase(), name.trim());
+      onJoin(code.trim().toUpperCase());
     }
   };
 
@@ -42,17 +43,23 @@ export const JoinGame: React.FC<JoinGameProps> = ({ onCreate, onJoin, isLoading 
       </div>
 
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-        <div>
-          <label className="block text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Tu Nombre</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Ej. Ana"
-            className="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white/10 transition-all"
-            required
-          />
-        </div>
+        
+        {mode === 'CREATE' && (
+           <div className="animate-fadeIn">
+            <label className="block text-xs uppercase tracking-wider text-slate-500 font-bold mb-2">Tu Nombre (Admin)</label>
+            <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej. Mamá"
+                className="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white/10 transition-all"
+                required
+            />
+            <p className="text-xs text-slate-500 mt-2">
+                Como creador, tendrás controles para gestionar la sala.
+            </p>
+          </div>
+        )}
 
         {mode === 'JOIN' && (
           <div className="animate-fadeIn">
@@ -66,12 +73,15 @@ export const JoinGame: React.FC<JoinGameProps> = ({ onCreate, onJoin, isLoading 
               className="w-full px-5 py-3 bg-white/5 border border-white/10 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:bg-white/10 transition-all font-mono tracking-widest uppercase"
               required
             />
+             <p className="text-xs text-slate-500 mt-2">
+                Podrás seleccionar tu nombre en el siguiente paso.
+            </p>
           </div>
         )}
 
         <button
           type="submit"
-          disabled={isLoading || !name.trim() || (mode === 'JOIN' && !code.trim())}
+          disabled={isLoading || (mode === 'CREATE' && !name.trim()) || (mode === 'JOIN' && !code.trim())}
           className="mt-4 w-full py-4 bg-gradient-to-r from-brand-600 to-purple-600 hover:from-brand-500 hover:to-purple-500 text-white font-bold rounded-xl transition-all shadow-lg shadow-brand-900/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isLoading ? (

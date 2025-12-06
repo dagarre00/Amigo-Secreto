@@ -33,11 +33,12 @@ CREATE TABLE rooms (
 );
 
 -- 2. Tabla de Participantes
+-- device_id es NULLABLE para permitir que el admin cree usuarios que aun no han entrado
 CREATE TABLE participants (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   room_code TEXT REFERENCES rooms(code) ON DELETE CASCADE NOT NULL,
   name TEXT NOT NULL,
-  device_id TEXT NOT NULL,
+  device_id TEXT, 
   is_admin BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
   UNIQUE(room_code, name)
@@ -52,27 +53,28 @@ CREATE TABLE assignments (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
--- 4. Habilitar Realtime
--- Esto permite que la app se actualice automáticamente sin recargar
-ALTER PUBLICATION supabase_realtime ADD TABLE rooms;
-ALTER PUBLICATION supabase_realtime ADD TABLE participants;
-ALTER PUBLICATION supabase_realtime ADD TABLE assignments;
+-- 4. Tabla de Exclusiones (Exclusions)
+CREATE TABLE exclusions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  room_code TEXT REFERENCES rooms(code) ON DELETE CASCADE NOT NULL,
+  giver_id UUID REFERENCES participants(id) ON DELETE CASCADE NOT NULL,
+  receiver_id UUID REFERENCES participants(id) ON DELETE CASCADE NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
 
 -- 5. Row Level Security (RLS) - Opcional para MVP, Recomendado para Prod
 -- Habilitar RLS
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
 ALTER TABLE participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exclusions ENABLE ROW LEVEL SECURITY;
 
 -- Políticas permisivas para el MVP (Permite leer/escribir a cualquiera con la clave anónima)
 CREATE POLICY "Public Access Rooms" ON rooms FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public Access Participants" ON participants FOR ALL USING (true) WITH CHECK (true);
 CREATE POLICY "Public Access Assignments" ON assignments FOR ALL USING (true) WITH CHECK (true);
+CREATE POLICY "Public Access Exclusions" ON exclusions FOR ALL USING (true) WITH CHECK (true);
 ```
-
-### C. Verificar Realtime
-1. Ve a **Database > Replication**.
-2. Asegúrate de que `supabase_realtime` esté habilitado y que las tablas `rooms`, `participants` y `assignments` estén listadas dentro de la publicación (el script SQL anterior debería haber hecho esto automáticamente).
 
 ---
 

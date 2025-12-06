@@ -1,14 +1,21 @@
+
 export interface Participant {
   id: string;
   name: string;
   is_admin: boolean;
-  device_id: string;
+  device_id: string | null;
 }
 
 export type Assignment = {
   giverId: string;
   receiverId: string;
 };
+
+export interface Exclusion {
+  id: string;
+  giverId: string;
+  receiverId: string;
+}
 
 export type RoomStatus = 'LOBBY' | 'REVEAL';
 
